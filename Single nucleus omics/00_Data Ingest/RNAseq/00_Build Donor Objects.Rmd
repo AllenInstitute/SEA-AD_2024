@@ -1,0 +1,178 @@
+---
+title: "RDS Convert"
+date: "Janurary 27, 2021"
+output: html_notebook
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+  
+## Load the relevant libraries
+
+```{r load libraries, warning=FALSE}
+
+if (!require("BiocManager", quietly = TRUE))
+  install.packages("BiocManager")
+
+remotes::install_github("grimbough/rhdf5@RELEASE_3_11")
+
+if (!require("DropletUtils", quietly = TRUE))
+  remotes::install_github("MarioniLab/DropletUtils@RELEASE_3_11")
+
+if (!require("beachmat", quietly = TRUE))
+  BiocManager::install("beachmat")
+
+suppressPackageStartupMessages({
+  library(DropletUtils)
+  library(dplyr)
+  library(Matrix)
+  library(Seurat)
+  library(scrattch.hicat) # for logCPM
+  library(future)
+  library(here)
+})
+options(stringsAsFactors=FALSE)
+options(future.globals.maxSize = 32000 * 1024^2)
+options(future.rng.onMisuse="ignore")
+setwd(here())
+
+
+```
+  
+  
+## Read in all data and metadata
+  
+We need individual Seurat objects for each donor.  We don't have them for this data set and so we will generate them in the sections below.  Instead, we are reading the data and annotation information from a different folder.  First, read in the sample meta-data.
+
+```{r define split_donors function}
+split_donors <- function(input_dir, output_dir, patterns, donor_name="donor_name", cell_id="exp_component_name") {
+  
+  dir.create(paste0(output_dir, "_RDS"))
+  dir.create(paste0(output_dir, "_mtx"))
+
+  metadata_files = as.list(sort(list.files(input_dir, pattern = patterns[1])))
+  expression_files = as.list(sort(list.files(input_dir, pattern = patterns[2])))
+  
+  if (length(metadata_files) != length(expression_files)) {
+    stop("WARNING: Number of sample data and UMI matrix files differs.")
+  }
+  
+  for (i in seq_along(metadata_files)) {
+    print(metadata_files[[i]])
+    
+    load(here(input_dir, metadata_files[[i]]))
+    load(here(input_dir, expression_files[[i]]))
+    
+    sample_data <- as.data.frame(samp.dat)
+    
+    rownames(sample_data) <- as.character(sample_data[, cell_id])
+    
+    UMIs <- mat
+    rm(samp.dat)
+    rm(mat)
+  
+    if (length(intersect(rownames(sample_data), colnames(UMIs))) != dim(UMIs)[2]) {
+      stop("WARNING: Mismatch between cells in the sample data and UMI matrices.")
+    }
+  
+    cells <- sample_data$gene.counts.0 >= 500
+    UMIs <- UMIs[, cells]
+    sample_data <- sample_data[cells,]
+    if (length(donor_name) > 1) {
+      donor_field = donor_name[i]
+    } else {
+      donor_field = donor_name
+    }
+    
+    donors <- unique(sample_data[, donor_field])
+    for (d in donors){
+      print(d)
+      
+      if (!file.exists(paste0(output_dir, "_RDS/", d, ".RData"))) {
+        cells <- sample_data[, donor_field] == d
+        
+        cnt <- UMIs[, cells]
+        ano <- sample_data[cells,]
+        rownames(ano)  <- colnames(cnt)
+        brain <- CreateSeuratObject(project = "brain", counts = cnt, meta.data = ano)
+        brain@assays$RNA@data <- logCPM(cnt)
+        save(brain, file = paste0(output_dir, "_RDS/", d, ".RData"))
+        print("--RDS written")
+      }
+      
+      if (!file.exists(paste0(output_dir, "_mtx/", d, "/samp.dat.csv"))) {
+        write10xCounts(x = GetAssayData(brain, slot = "counts"), path = here(paste0(output_dir, "_mtx"), d))
+        write.csv(brain@meta.data, file = here(paste0(output_dir, "_mtx"), d, "samp.dat.csv"))
+        print("--mtx written")
+      }
+    }
+  }
+}
+
+```
+
+# MTG
+
+```{r}
+# Read in Nik's metadata and export to a CSV
+metadata <- readRDS("/allen/programs/celltypes/workgroups/rnaseqanalysis/Nik/Analyses_for_great_apes_paper/Step9_final_taxonomies_after_manual_subclass_confirmation/individual_species/human/Master_metadata_for_plots_and_sharing_12_16_21.RDS")
+#metadata <- filter(metadata, tech != "SSv4")
+metadata <- as.data.frame(metadata)
+metadata$sample_id <- gsub("([ATGC]{16}-)[0-9]{1,2}", "\\1", metadata$sample_id)
+rownames(metadata) <- metadata$sample_id
+metadata <- metadata[,c("sample_id", "class", "neighborhood", "subclass", "subclass_color", "cluster", "cluster_color")]
+write.csv(metadata, file = (here("input", "metadata", "Great_ApesMetadata_version101_20220321.csv")))
+
+```
+
+```{r Reference Singlome MTG CR6}
+split_donors(here("input", "MTG_reference_singleomeCR6"), here("output", "MTG_reference_singleomeCR6_2_donor"), patterns = c("*_samp.dat.rda", "*_mat.rda"))
+```
+
+```{r Reference Multiome MTG}
+split_donors(here("input", "MTG_reference_multiome"), here("output", "MTG_reference_multiome_donor"), patterns = c("*_samp.dat_220520.rda", "*_mat_220520.rda"))
+```
+
+```{r AD Singleome MTG CR6}
+split_donors(here("input", "MTG_AD_singleomeCR6"), here("output", "MTG_AD_singleomeCR6_donor"), patterns = c("*_samp.dat.rda", "*_mat.rda"))
+```
+
+```{r AD Multiome MTG}
+split_donors(here("input", "MTG_AD_multiome"), here("output", "MTG_AD_multiome_donor"), patterns = c("*_samp.dat.rda", "*_mat.rda"))
+```
+
+```{r Reference MTG PatchSeq CR6}
+convert_smartseq(here("input", "MTG_reference_patchseq"), here("output", "MTG_reference_patchseq_donor"), prefixes = c("20220914_RSC-122-310_human_patchseq_star2.7"))
+```
+
+# DFPLC
+
+```{r}
+# Read in Nik's metadata and export to a CSV
+metadata <- readRDS("/allen/programs/celltypes/workgroups/rnaseqanalysis/Nik/Analysis_for_human_cross_areal_paper/for_manuscript/metadata/meta_10x_2_11_22.RDS")
+metadata <- as.data.frame(metadata)
+metadata$sample_id <- gsub("([ATGC]{16}-)[0-9]{1,2}", "\\1", metadata$sample_id)
+rownames(metadata) <- metadata$sample_id
+metadata <- metadata[,c("sample_id", "class", "neighborhood", "within_area_subclass", "within_area_cluster")]
+write.csv(metadata, file = (here("input", "metadata", "Cross_ArealMetadata_version100_20220815.csv")))
+
+```
+
+```{r Reference DLPFC CR6}
+split_donors(here("input", "DLPFC_reference_singleomeCR6"), here("output", "DLPFC_reference_singleomeCR6_donor"), patterns = c("*_samp.dat_220812.rda", "*_mat_220812.rda"))
+```
+```{r AD Singleome DLPFC CR6}
+split_donors(here("input", "DLPFC_AD_singleomeCR6"), here("output", "DLPFC_AD_singleomeCR6_donor"), patterns = c("*_samp.dat_220331.rda", "*_mat_220331.rda"))
+```
+
+```{r AD Multiome DLPFC}
+split_donors(here("input", "DLPFC_AD_multiome"), here("output", "DLPFC_AD_multiome_donor"), patterns = c("*_samp.dat_220415.rda", "*_mat_220415.rda"))
+```
+
+Output session information.  
+  
+```{r sessionInfo}
+sessionInfo()
+```      
+  
