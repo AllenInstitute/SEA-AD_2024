@@ -180,7 +180,7 @@ def compute_doublet_scores(adata, proportion_artificial=0.2):
 
     try:
         sc.pp.highly_variable_genes(adata, n_top_genes=5000, flavor="seurat_v3", layer="UMIs")
-        adata.layers["UMIs"]
+        del adata.layers["UMIs"]
     except:
         sc.pp.highly_variable_genes(adata, min_mean=1, min_disp=0.5)
         del adata.layers["UMIs"]
