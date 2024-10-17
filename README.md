@@ -11,8 +11,8 @@ Detailed documentation of datasets and their locations is available at [SEA-AD.o
 
 Breifly, the processed single nucleus RNAseq, ATACseq, and Multiome as well as MERFISH datasets are available from the [AWS Open Data Registry](https://registry.opendata.aws/allen-sea-ad-atlas/). Raw sequencing data and SNP chip data are available through the [AD Knowledge Portal](http://adknowledgeportal.synapse.org/Explore/Studies/DetailsPage?Study=syn26223298). Processed quantitative neuropathology are available [here](https://brainmapportal-live-4cc80a57cd6e400d854-f7fdcae.divio-media.net/filer_public/f0/1a/f01acfd1-63e5-4de5-afc6-729af9a80cc9/sea-ad_all_mtg_quant_neuropath_bydonorid_081122.csv) and the raw images used to generate these values are [here](https://registry.opendata.aws/allen-sea-ad-atlas). Finally, donor metadata is available [here](https://brainmapportal-live-4cc80a57cd6e400d854-f7fdcae.divio-media.net/filer_public/b4/c7/b4c727e1-ede1-4c61-b2ee-bf1ae4a3ef68/sea-ad_cohort_donor_metadata_072524.xlsx).
 
-## Manuscript
-The manuscript is available on [bioRxiv](https://www.biorxiv.org/content/10.1101/2023.05.08.539485v3.full).
+## Manuscript and Paper
+The manuscript is available on [bioRxiv](https://www.biorxiv.org/content/10.1101/2023.05.08.539485v3.full) and paper at [Nature Neuroscience](https://www.nature.com/articles/s41593-024-01774-5).
 
 ## Questions?
 Please direct questions about the code, data, or the SEA-AD project to our [online forum](https://community.brain-map.org/) or to the corresponding authors: Drs [Ed Lein](mailto:EdL@alleninstitute.org), [C. Dirk Keene](mailto:cdkeene@uw.edu), and [Michael Hawrylycz](mailto:mikeh@alleninstitute.org).
